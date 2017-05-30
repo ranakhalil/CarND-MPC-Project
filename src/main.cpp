@@ -10,11 +10,11 @@
 #include "json.hpp"
 #include "Utils.h"
 
-//Utils
-Utils utils;
-
 // for convenience
 using json = nlohmann::json;
+
+// Utils is initialized here!
+Utils utils;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
@@ -60,14 +60,18 @@ int main() {
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
 		  // Convert to Eigen
-		  Eigen::VectorXcd ptsx_vector = Eigen::VectorXcd::Map(ptsx.data(), ptsx.size());
-		  Eigen::VectorXcd ptsy_vector = Eigen::VectorXcd::Map(ptsy.data(), ptsy.size());
+		  // Pointer to first element
+		  double* ptr_x = &ptsx[0];
+		  double* ptr_y = &ptsy[0];
+
+		  Eigen::Map<Eigen::VectorXd> ptsx_vector(ptr_x, ptsx.size());
+		  Eigen::Map<Eigen::VectorXd> ptsy_vector(ptr_y, ptsy.size());
 
 		  double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
-
+		  
 		  auto coeffs = utils.polyfit(ptsx_vector, ptsy_vector, 1);
 
 		  double cte = utils.polyeval(coeffs, 0) - py;
@@ -106,8 +110,8 @@ int main() {
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
-		  mpc_x_vals = mpcs[2];
-		  mpc_y_vals = mpcs[3];
+		  mpc_x_vals = { mpcs[2] };
+		  mpc_y_vals = { mpcs[3] };
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line

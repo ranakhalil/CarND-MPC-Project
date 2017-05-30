@@ -9,8 +9,7 @@ Utils::~Utils() {}
 // Fit a polynomial.
 // Adapted from
 // https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
-Eigen::VectorXd Utils::polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
-	int order) {
+Eigen::VectorXd Utils::polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order) {
 	assert(xvals.size() == yvals.size());
 	assert(order >= 1 && order <= xvals.size() - 1);
 	Eigen::MatrixXd A(xvals.size(), order + 1);
@@ -28,7 +27,7 @@ Eigen::VectorXd Utils::polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
 	auto Q = A.householderQr();
 	auto result = Q.solve(yvals);
 	return result;
-}
+};
 
 // Evaluate a polynomial.
 double Utils::polyeval(Eigen::VectorXd coeffs, double x) {
@@ -37,4 +36,4 @@ double Utils::polyeval(Eigen::VectorXd coeffs, double x) {
 		result += coeffs[i] * pow(x, i);
 	}
 	return result;
-}
+};

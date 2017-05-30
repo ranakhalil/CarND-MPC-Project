@@ -1,3 +1,6 @@
+#ifndef Utils_H
+#define Utils_H
+
 #include <math.h>
 #include <cppad/cppad.hpp>
 #include <cppad/ipopt/solve.hpp>
@@ -9,7 +12,9 @@ class Utils {
 		Utils();
 		virtual ~Utils();
 		// Fit x and y vals
-		Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order);
+		static Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order);
 		// Evaluate a polynomial.
-		double polyeval(Eigen::VectorXd coeffs, double x);
+		static double polyeval(Eigen::VectorXd coeffs, double x);
 };
+
+#endif /* Utils_H */
