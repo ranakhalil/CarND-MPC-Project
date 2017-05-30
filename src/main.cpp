@@ -8,6 +8,10 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "MPC.h"
 #include "json.hpp"
+#include "Utils.h"
+
+//Utils
+Utils utils;
 
 // for convenience
 using json = nlohmann::json;
@@ -32,38 +36,6 @@ string hasData(string s) {
   return "";
 }
 
-// Evaluate a polynomial.
-double polyeval(Eigen::VectorXd coeffs, double x) {
-  double result = 0.0;
-  for (int i = 0; i < coeffs.size(); i++) {
-    result += coeffs[i] * pow(x, i);
-  }
-  return result;
-}
-
-// Fit a polynomial.
-// Adapted from
-// https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
-Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
-                        int order) {
-  assert(xvals.size() == yvals.size());
-  assert(order >= 1 && order <= xvals.size() - 1);
-  Eigen::MatrixXd A(xvals.size(), order + 1);
-
-  for (int i = 0; i < xvals.size(); i++) {
-    A(i, 0) = 1.0;
-  }
-
-  for (int j = 0; j < xvals.size(); j++) {
-    for (int i = 0; i < order; i++) {
-      A(j, i + 1) = A(j, i) * xvals(j);
-    }
-  }
-
-  auto Q = A.householderQr();
-  auto result = Q.solve(yvals);
-  return result;
-}
 
 int main() {
   uWS::Hub h;
@@ -87,10 +59,19 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
-          double px = j[1]["x"];
+		  // Convert to Eigen
+		  Eigen::VectorXcd ptsx_vector = Eigen::VectorXcd::Map(ptsx.data(), ptsx.size());
+		  Eigen::VectorXcd ptsy_vector = Eigen::VectorXcd::Map(ptsy.data(), ptsy.size());
+
+		  double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+
+		  auto coeffs = utils.polyfit(ptsx_vector, ptsy_vector, 1);
+
+		  double cte = utils.polyeval(coeffs, 0) - py;
+		  double epsi = -atan(coeffs[1]);
 
           /*
           * TODO: Calculate steeering angle and throttle using MPC.
@@ -98,8 +79,22 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
+		  Eigen::VectorXd state(6);
+		  state << px, py, psi, v, cte, epsi;
+
+		  auto mpcs = mpc.Solve(state, coeffs);
+
+		  // mpcs order of retruned values
+		  // 0: steer_value, 
+		  // 1: throttle_value, 
+		  // 2: mpc_x_vals, 
+		  // 3: mpc_y_vals 
+
           double steer_value;
           double throttle_value;
+		  
+		  steer_value = mpcs[0];
+		  throttle_value = mpcs[1];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -111,6 +106,9 @@ int main() {
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
+		  mpc_x_vals = mpcs[2];
+		  mpc_y_vals = mpcs[3];
+
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
@@ -118,8 +116,11 @@ int main() {
           msgJson["mpc_y"] = mpc_y_vals;
 
           //Display the waypoints/reference line
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+		  vector<double> next_x_vals = {px};
+		  vector<double> next_y_vals = {py};
+		
+		  next_x_vals.push_back(mpcs[0]);
+		  next_y_vals.push_back(mpcs[1]);
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
