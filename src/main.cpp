@@ -16,6 +16,8 @@ using json = nlohmann::json;
 // Utils is initialized here!
 Utils utils;
 
+const double Lf = 2.67;
+
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
@@ -42,7 +44,6 @@ int main() {
 
   // MPC is initialized here!
   MPC mpc;
-
   h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -59,10 +60,13 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
+
 		  // Convert to Eigen
 		  // Pointer to first element
 		  double* ptr_x = &ptsx[0];
 		  double* ptr_y = &ptsy[0];
+
+		 // cout << "ptr_x : " << &ptsx[0] << endl;
 
 		  Eigen::Map<Eigen::VectorXd> ptsx_vector(ptr_x, ptsx.size());
 		  Eigen::Map<Eigen::VectorXd> ptsy_vector(ptr_y, ptsy.size());
@@ -71,10 +75,29 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
-		  
-		  auto coeffs = utils.polyfit(ptsx_vector, ptsy_vector, 1);
 
-		  double cte = utils.polyeval(coeffs, 0) - py;
+		  vector<double> transformed_pts_x;
+		  vector<double> transformed_pts_y;
+
+		 // cout << "To local points : " << endl;
+		  utils.to_local_points(ptsx, ptsy, px, py, psi, transformed_pts_x, transformed_pts_y);
+
+		 // cout << "Transformed x points : " << transformed_pts_x.size() << endl;
+		 // cout << "Transformed y points : " << transformed_pts_y.size() << endl;
+
+		  double* ptr_transformed_x = &transformed_pts_x[0];
+		  double* ptr_transformed_y = &transformed_pts_y[0];
+
+		  //cout << "ptr_transformed_x : " << &transformed_pts_x[0] << endl;
+
+		  Eigen::Map<Eigen::VectorXd> transformed_ptsx_vector(ptr_transformed_x, transformed_pts_x.size());
+		  Eigen::Map<Eigen::VectorXd> transformed_ptsy_vector(ptr_transformed_y, transformed_pts_y.size());
+		  
+		  //cout << "Polyfit " << endl;
+		  auto coeffs = utils.polyfit(transformed_ptsx_vector, transformed_ptsy_vector, 3);
+
+		  //cout << "Polyeval: " << endl;
+		  double cte = utils.polyeval(coeffs, 0);
 		  double epsi = -atan(coeffs[1]);
 
           /*
@@ -84,7 +107,12 @@ int main() {
           *
           */
 		  Eigen::VectorXd state(6);
-		  state << px, py, psi, v, cte, epsi;
+		  //state << px, py, psi, v, cte, epsi;
+		  state << 0.0, 0.0, 0.0, v, cte, epsi;
+		  //Eigen::VectorXd actuators(2);
+		  //actuators << deg2rad(5), 1;
+		  
+		  //state = utils.globalKinematic(state, actuators, 0.3, Lf);
 
 		  auto mpcs = mpc.Solve(state, coeffs);
 
@@ -97,7 +125,7 @@ int main() {
           double steer_value;
           double throttle_value;
 		  
-		  steer_value = mpcs[0];
+		  steer_value = mpcs[0] / (deg2rad(25) * Lf);
 		  throttle_value = mpcs[1];
 
           json msgJson;
@@ -110,8 +138,13 @@ int main() {
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
-		  mpc_x_vals = { mpcs[2] };
-		  mpc_y_vals = { mpcs[3] };
+		  for (int i = 2; i < mpcs.size(); i++)
+		  {
+			  if (i % 2 == 0)
+				  mpc_x_vals.push_back(mpcs[i]);
+			  else
+				  mpc_y_vals.push_back(mpcs[i]);
+		  }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
@@ -120,11 +153,14 @@ int main() {
           msgJson["mpc_y"] = mpc_y_vals;
 
           //Display the waypoints/reference line
-		  vector<double> next_x_vals = {px};
-		  vector<double> next_y_vals = {py};
-		
-		  next_x_vals.push_back(mpcs[0]);
-		  next_y_vals.push_back(mpcs[1]);
+		  vector<double> next_x_vals;
+		  vector<double> next_y_vals;
+		  int Nex = 30;
+		  for (int i = 0; i < Nex; ++i) {
+			  next_x_vals.push_back(i * 2);
+			  next_y_vals.push_back(utils.polyeval(coeffs, i * 2));
+		  }
+		 
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
