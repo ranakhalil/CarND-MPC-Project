@@ -32,6 +32,125 @@ In the begining we need to transform the global positons we are being handed ove
 
 ```
 
+transform_x.resize(ptsx.size());
+	transform_y.resize(ptsy.size());
+	for (int p = 0; p < ptsx.size(); p++)
+	{
+		auto x_diff = ptsx[p] - x;
+		auto y_diff = ptsy[p] - y;
+		auto psi_diff = 0 - psi;
+
+		transform_x[p] = x_diff * CppAD::cos(psi_diff) - y_diff * CppAD::sin(psi_diff);
+		transform_y[p] = x_diff * CppAD::sin(psi_diff) + y_diff * CppAD::cos(psi_diff);
+	}
+
+```
+
+After getting the local x and y coordinates, the part that was mostly confusing was using the global kinematic model
+Here is the global kinematic model which we using in the MPC quizzes:
+
+```
+	auto x = state(0);
+	auto y = state(1);
+	auto psi = state(2);
+	auto v = state(3);
+
+	auto delta = actuators(0);
+	auto a = actuators(1);
+
+	// Recall the equations for the model:
+	// Global Kinematic
+	// x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
+	// y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
+	// psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
+	// v_[t+1] = v[t] + a[t] * dt
+	next_state(0) = x + v * cos(psi) * dt;
+	next_state(1) = y + v * sin(psi) * dt;
+	next_state(2) = psi + v / Lf * delta * dt;
+	next_state(3) = v + a * dt;
+
+```
+
+You would say it looks pretty straightforward and lets apply it right away.. Except , things are a little different here than the quiz
+What we are trying to do is, take the local position of the car and predict where our car in its own understanding of the world should be next 
+based on controling where its next way points are.
+
+To be able to do so, we need to assume that the car is at initial positions 0.0 and heading to the new position the global kinematick
+model will take the local car from its local space to where it should be next globally
+
+To do so, I have adjusted the kinematic model:
+
+```
+// Recall the equations for the model:
+		  // Global Kinematic
+		  // x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
+		  // y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
+		  // psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
+		  // v_[t+1] = v[t] + a[t] * dt
+		  state << 0.0 + v * CppAD::cos(mpc.steering_) * delta_t * latency,
+					0.0 + v * CppAD::sin(mpc.steering_) * delta_t * latency,
+					0.0,
+					0.0 + v * delta_t, 
+					cte, 
+					epsi;
+```
+
+As you can see the initial x and y are zeros, however we are applying the psi and delta changes on the x and y. Now comes to the most important part
+that really could keep you awake and miserable, the psi. The psi needs to be at state zero, you should only have your x and y headings and your cte and epsi.
+
+The way I understood it is, your car or your point is on the cars origin where your initial x and y are zero , however still taking into account 
+the speed and orientation while your psi is zero. That made the model actually able to do proper predictions and move forward vs forward and backwards.
+
+
+Another issue I had was with properly setting the following variables:
+
+```
+// N timesteps == N - 1 actuations
+  size_t n_vars = state.size() * N + 2 * (N - 1);
+
+  // TODO: Set the number of constraints
+  size_t n_constraints = N * state.size();
+
+```
+
+The was mainly due to the fact that I have hardcoded the size, and it wasn't  either a good or efficient practice.
+
+Another major bug that really took a while for me to catch is this portion here in the lecture notes:
+
+```
+ fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
+  fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
+  fg[1 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / Lf * dt);
+  fg[1 + v_start + t] = v1 - (v0 + a0 * dt);
+  fg[1 + cte_start + t] =
+      cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
+  fg[1 + epsi_start + i] =
+      epsi1 - ((psi0 - psides0) + v0 * delta0 / Lf * dt);
+
+```
+
+If you pay attention in the walkthrough, and trust me it took endless time to find this out via re-watching the 
+walkthrough is its actually wrong, and in the walkthrough it is instead:
+
+```
+	fg[2 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
+	fg[2 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
+	fg[2 + psi_start + t] = psi1 - (psi0 + v0 * delta0 / Lf * dt);
+	fg[2 + v_start + t] = v1 - (v0 + a0 * dt);
+	fg[2 + cte_start + t] =
+		cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
+	fg[2 + epsi_start + t] =
+		epsi1 - ((psi0 - psides0) + v0 * delta0 / Lf * dt);
+
+```
+
+Now that I was able to spot the bugs, and be able to adjust my speed. Thanks for Alex Cui , Oleg and other students I was advised
+to play around with actuators, and also to play around with speed which thanks to Miguel Morales discovered.
+
+
+
+Overall its been a rewarding project. 
+
 ## Dependencies
 
 * cmake >= 3.5
