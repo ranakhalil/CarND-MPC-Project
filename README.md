@@ -3,6 +3,21 @@ Self-Driving Car Engineer Nanodegree Program
 
 ---
 
+## Implementation
+
+I have started by getting the current world positioning for the car along with the x and y points. 
+Proceeded to first convert from global points to local coordinates. After that I used the global kinematic model
+to be able to predict the next state, and edited the model to be simpler and apply latency.
+
+I have then precceded with using other state equations to setup the actuators and update the states for 
+x, y, psi and epsi
+
+
+## What does MPC do
+
+MPC allows us to predict the next points and heading where the car should go. Its a pretty neat predictive c
+controller for the car
+
 ## Dependencies
 
 * cmake >= 3.5
