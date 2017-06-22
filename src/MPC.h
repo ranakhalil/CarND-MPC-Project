@@ -12,6 +12,10 @@ class MPC {
   MPC();
 
   virtual ~MPC();
+  double steering_;
+  double a_;
+  vector<double> predicted_x_vals;
+  vector<double> predicted_y_vals;
 
   // Solve the model given an initial state and polynomial coefficients.
   // Return the first actuatotions.

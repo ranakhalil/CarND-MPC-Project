@@ -12,11 +12,25 @@ to be able to predict the next state, and edited the model to be simpler and app
 I have then precceded with using other state equations to setup the actuators and update the states for 
 x, y, psi and epsi
 
+Link to working video: https://www.youtube.com/watch?v=2nctBKCR0_U&feature=youtu.be
+
+I have ran into some issues where I wasn't getting the correct steering and throttle data. I also ran into issues with 
+how to operate the vectors and how to implement the transformations and predictions
+
+One of the main issues that was causing my predictions to go insance, was not properly initializing psi
+relative to the car position, which it should be 0.0 since we are at the center of the car. The global 
+kinematic model needed some tweaking. Thanks to Alex Cui, Miguel Morales, Denise James, and Oleg in the forums, and slack I was 
+able to understand the model better and what state my car should start at and go to
+
 
 ## What does MPC do
 
 MPC allows us to predict the next points and heading where the car should go. Its a pretty neat predictive c
 controller for the car
+
+In the begining we need to transform the global positons we are being handed over to local car coordinates:
+
+```
 
 ## Dependencies
 

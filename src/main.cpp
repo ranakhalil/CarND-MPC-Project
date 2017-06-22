@@ -44,6 +44,7 @@ int main() {
 
   // MPC is initialized here!
   MPC mpc;
+  
   h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -60,45 +61,33 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
-
-		  // Convert to Eigen
-		  // Pointer to first element
-		  double* ptr_x = &ptsx[0];
-		  double* ptr_y = &ptsy[0];
-
-		 // cout << "ptr_x : " << &ptsx[0] << endl;
-
-		  Eigen::Map<Eigen::VectorXd> ptsx_vector(ptr_x, ptsx.size());
-		  Eigen::Map<Eigen::VectorXd> ptsy_vector(ptr_y, ptsy.size());
-
 		  double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-		  vector<double> transformed_pts_x;
-		  vector<double> transformed_pts_y;
+		  vector<double> transform_x;
+		  vector<double> transform_y;
 
 		 // cout << "To local points : " << endl;
-		  utils.to_local_points(ptsx, ptsy, px, py, psi, transformed_pts_x, transformed_pts_y);
+		  utils.to_local_points(ptsx, ptsy, px, py, psi, transform_x, transform_y);
 
-		 // cout << "Transformed x points : " << transformed_pts_x.size() << endl;
-		 // cout << "Transformed y points : " << transformed_pts_y.size() << endl;
+		  // Convert to Eigen
+		  // Pointer to first element
+		  double* ptr_x = &transform_x[0];
+		  double* ptr_y = &transform_y[0];
 
-		  double* ptr_transformed_x = &transformed_pts_x[0];
-		  double* ptr_transformed_y = &transformed_pts_y[0];
+		  // cout << "ptr_x : " << &ptsx[0] << endl;
 
-		  //cout << "ptr_transformed_x : " << &transformed_pts_x[0] << endl;
-
-		  Eigen::Map<Eigen::VectorXd> transformed_ptsx_vector(ptr_transformed_x, transformed_pts_x.size());
-		  Eigen::Map<Eigen::VectorXd> transformed_ptsy_vector(ptr_transformed_y, transformed_pts_y.size());
+		  Eigen::Map<Eigen::VectorXd> v_ptsx(ptr_x, transform_x.size());
+		  Eigen::Map<Eigen::VectorXd> v_ptsy(ptr_y, transform_y.size());
 		  
 		  //cout << "Polyfit " << endl;
-		  auto coeffs = utils.polyfit(transformed_ptsx_vector, transformed_ptsy_vector, 3);
+		  Eigen::VectorXd coeffs = utils.polyfit(v_ptsx, v_ptsy, 3);
 
 		  //cout << "Polyeval: " << endl;
 		  double cte = utils.polyeval(coeffs, 0);
-		  double epsi = -atan(coeffs[1]);
+		  double epsi = -CppAD::atan(coeffs[1]);
 
           /*
           * TODO: Calculate steeering angle and throttle using MPC.
@@ -106,13 +95,23 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-		  Eigen::VectorXd state(6);
-		  //state << px, py, psi, v, cte, epsi;
-		  state << 0.0, 0.0, 0.0, v, cte, epsi;
-		  //Eigen::VectorXd actuators(2);
-		  //actuators << deg2rad(5), 1;
+		  double delta_t = 0.43704;
+		  // 100 ms
+		  double latency = 0.1;
 		  
-		  //state = utils.globalKinematic(state, actuators, 0.3, Lf);
+		  Eigen::VectorXd state(6);
+		  // Recall the equations for the model:
+		  // Global Kinematic
+		  // x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
+		  // y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
+		  // psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
+		  // v_[t+1] = v[t] + a[t] * dt
+		  state << 0.0 + v * CppAD::cos(mpc.steering_) * delta_t * latency,
+					0.0 + v * CppAD::sin(mpc.steering_) * delta_t * latency,
+					0.0,
+					0.0 + v * delta_t, 
+					cte, 
+					epsi;
 
 		  auto mpcs = mpc.Solve(state, coeffs);
 
@@ -122,22 +121,22 @@ int main() {
 		  // 2: mpc_x_vals, 
 		  // 3: mpc_y_vals 
 
-          double steer_value;
-          double throttle_value;
+          auto steer_value = -mpc.steering_ / deg2rad(25);
+          auto throttle_value = mpc.a_;
 		  
-		  steer_value = mpcs[0] / (deg2rad(25) * Lf);
-		  throttle_value = mpcs[1];
+		  steer_value = steer_value;
+		  throttle_value = throttle_value;
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
           msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = throttle_value;
+          msgJson["throttle"] = throttle_value * 1.5;
 
           //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
-
+         // vector<double> mpc_x_vals;
+         // vector<double> mpc_y_vals;
+		  /*
 		  for (int i = 2; i < mpcs.size(); i++)
 		  {
 			  if (i % 2 == 0)
@@ -145,27 +144,31 @@ int main() {
 			  else
 				  mpc_y_vals.push_back(mpcs[i]);
 		  }
+		  */
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
-          msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
+          msgJson["mpc_x"] = mpc.predicted_x_vals;
+          msgJson["mpc_y"] = mpc.predicted_y_vals;
 
           //Display the waypoints/reference line
 		  vector<double> next_x_vals;
+		  next_x_vals.resize(transform_x.size());
 		  vector<double> next_y_vals;
-		  int Nex = 30;
-		  for (int i = 0; i < Nex; ++i) {
-			  next_x_vals.push_back(i * 2);
-			  next_y_vals.push_back(utils.polyeval(coeffs, i * 2));
+		  next_y_vals.resize(transform_y.size());
+
+		  for (int p = 0; p < transform_x.size(); p++)
+		  {
+			  next_x_vals[p] = transform_x[p];
+			  next_y_vals[p] = transform_y[p];
 		  }
 		 
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
 
-          msgJson["next_x"] = next_x_vals;
+		  msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
 

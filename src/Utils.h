@@ -17,7 +17,8 @@ class Utils {
 		Utils();
 		virtual ~Utils();
 		// Fit x and y vals
-		static Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order);
+		static Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
+			int order);
 		
 		// Evaluate a polynomial.
 		static double polyeval(Eigen::VectorXd coeffs, double x);
@@ -26,8 +27,7 @@ class Utils {
 		static Eigen::VectorXd globalKinematic(Eigen::VectorXd state, Eigen::VectorXd actuators, double dt, double Lf);
 		
 		// transform from global space to local car space
-		static void to_local_points(vector<double> ptsx, vector<double> ptsy, double x, double y, double psi,
-			vector<double>& transformed_pts_x, vector<double>& transformed_pts_y);
+		static void to_local_points(vector<double> ptsx, vector<double> ptsy, double x, double y, double psi, vector<double>& transform_x, vector<double>& transform_y);
 };
 
 #endif /* Utils_H */

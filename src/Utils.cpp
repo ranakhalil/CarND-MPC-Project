@@ -10,10 +10,8 @@ Utils::~Utils() {}
 // Fit a polynomial.
 // Adapted from
 // https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
-Eigen::VectorXd Utils::polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order) {
-	//cout << "Vals : " << (xvals.size() == yvals.size()) << endl;
-	//cout << "Order Checks : " << (order >= 1 && order <= xvals.size() - 1) << endl;
-
+Eigen::VectorXd Utils::polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
+	int order) {
 	assert(xvals.size() == yvals.size());
 	assert(order >= 1 && order <= xvals.size() - 1);
 	Eigen::MatrixXd A(xvals.size(), order + 1);
@@ -30,9 +28,8 @@ Eigen::VectorXd Utils::polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int
 
 	auto Q = A.householderQr();
 	auto result = Q.solve(yvals);
-	//cout << "Result : " << result;
 	return result;
-};
+}
 
 // Evaluate a polynomial.
 double Utils::polyeval(Eigen::VectorXd coeffs, double x) {
@@ -62,6 +59,7 @@ Eigen::VectorXd Utils::globalKinematic(Eigen::VectorXd state,
 	auto a = actuators(1);
 
 	// Recall the equations for the model:
+	// Global Kinematic
 	// x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
 	// y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
 	// psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
@@ -73,17 +71,18 @@ Eigen::VectorXd Utils::globalKinematic(Eigen::VectorXd state,
 	return next_state;
 }
 
-void Utils::to_local_points(vector<double> ptsx, vector<double> ptsy, double x, double y, double psi, 
-	vector<double>& transformed_pts_x, vector<double>& transformed_pts_y)
+void Utils::to_local_points(vector<double> ptsx, vector<double> ptsy, double x, double y, double psi, vector<double>& transform_x, vector<double>& transform_y)
 {
-	assert(ptsx.size() == ptsy.size());
 
+	transform_x.resize(ptsx.size());
+	transform_y.resize(ptsy.size());
 	for (int p = 0; p < ptsx.size(); p++)
 	{
-		const double x_diff = ptsx[p] - x;
-		const double y_diff = ptsy[p] - y;
+		auto x_diff = ptsx[p] - x;
+		auto y_diff = ptsy[p] - y;
+		auto psi_diff = 0 - psi;
 
-		transformed_pts_x.push_back(x_diff * cos(-psi) - y_diff * sin(-psi));
-		transformed_pts_y.push_back(y_diff * cos(-psi) + x_diff * cos(-psi));
+		transform_x[p] = x_diff * CppAD::cos(psi_diff) - y_diff * CppAD::sin(psi_diff);
+		transform_y[p] = x_diff * CppAD::sin(psi_diff) + y_diff * CppAD::cos(psi_diff);
 	}
 }
