@@ -66,10 +66,20 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+		  // 100 ms
+		  double latency = 0.1;
+		  double delta_t = 0.44704;
+
+		  // predict states (exclude cte and epsi) 100ms into future
+		  //px += v*cos(psi)*latency;
+		  //py += v*sin(psi)*latency;
+		  //psi -= (v*delta_t*latency) / Lf;
+		  //v += v * delta_t * latency;
+
 		  vector<double> transform_x;
 		  vector<double> transform_y;
 
-		 // cout << "To local points : " << endl;
+		 //cout << "To local points : " << endl;
 		  utils.to_local_points(ptsx, ptsy, px, py, psi, transform_x, transform_y);
 
 		  // Convert to Eigen
@@ -77,7 +87,7 @@ int main() {
 		  double* ptr_x = &transform_x[0];
 		  double* ptr_y = &transform_y[0];
 
-		  // cout << "ptr_x : " << &ptsx[0] << endl;
+		  //cout << "ptr_x : " << &ptsx[0] << endl;
 
 		  Eigen::Map<Eigen::VectorXd> v_ptsx(ptr_x, transform_x.size());
 		  Eigen::Map<Eigen::VectorXd> v_ptsy(ptr_y, transform_y.size());
@@ -95,9 +105,7 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-		  double delta_t = 0.43704;
-		  // 100 ms
-		  double latency = 0.1;
+		  
 		  
 		  Eigen::VectorXd state(6);
 		  // Recall the equations for the model:
@@ -112,6 +120,9 @@ int main() {
 					0.0 + v * delta_t, 
 					cte, 
 					epsi;
+
+		
+		  //state << 0, 0, 0, v, cte, epsi;
 
 		  auto mpcs = mpc.Solve(state, coeffs);
 

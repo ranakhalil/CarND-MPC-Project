@@ -147,9 +147,46 @@ walkthrough is its actually wrong, and in the walkthrough it is instead:
 Now that I was able to spot the bugs, and be able to adjust my speed. Thanks for Alex Cui , Oleg and other students I was advised
 to play around with actuators, and also to play around with speed which thanks to Miguel Morales discovered.
 
+## Choice of N and dt
+I have done a lot of trial and error and started with the N values from 
+the quizes the walkthroughs and was able to get the best results at N = 20
+with dt as 0.1.
+
+Essentially those values are a reflection of our optimizer taking a second
+to be alble to map out an N number of steps at a given trajectory prediction per that time
+
+## MPC Latency
+
+I have taken the global kniematic model and essentially punished the model through
+applying the latency to my state predictions:
+
+```
+state << 0.0 + v * CppAD::cos(mpc.steering_) * delta_t * latency,
+					0.0 + v * CppAD::sin(mpc.steering_) * delta_t * latency,
+					0.0,
+					0.0 + v * delta_t, 
+					cte, 
+					epsi;
+```
+
+I have based my latency value based on how long the thread sleeps which
+is 100 ms.
+
+## Polynomial fitting and preprocessing
+
+I have used third order polynomial fitting as indicated in the walkthrough
+and adviced throughout the form to be able to get those polynomial curves fitted
+it improved how smooth my car was able to turn and not go off road:
+
+```
+	Eigen::VectorXd coeffs = utils.polyfit(v_ptsx, v_ptsy, 3);
+
+```
+
 
 
 Overall its been a rewarding project. 
+
 
 ## Dependencies
 

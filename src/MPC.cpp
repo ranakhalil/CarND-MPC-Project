@@ -26,7 +26,8 @@ const double Lf = 2.67;
 // The reference velocity is set to 35 mph.
 double ref_cte = 0;
 double ref_epsi = 0;
-double ref_v = 40 * 0.4356;
+//https://www.calculatorsoup.com/calculators/conversions/speed.php
+double ref_v = 40 * 0.44704;
 
 // since we take all state variables and actuators .. 
 // we need to establish when one starts, other ends
@@ -57,15 +58,15 @@ class FG_eval {
 
 	// The part of the cost based on the reference state.
 	for (int i = 0; i < N; i++) {
-		fg[0] += 0.21 * CppAD::pow(vars[cte_start + i] - ref_cte, 2);
+		fg[0] += 0.8 * CppAD::pow(vars[cte_start + i] - ref_cte, 2);
 		fg[0] += 80 * CppAD::pow(vars[epsi_start + i] - ref_epsi, 2);
-		fg[0] += 0.7 * CppAD::pow(vars[v_start + i] - ref_v, 2);
+		fg[0] += 0.9 * CppAD::pow(vars[v_start + i] - ref_v, 2);
 	}
 
 	// Minimize the use of actuators.
 	for (int i = 0; i < N - 1; i++) {
 		fg[0] += 60 * CppAD::pow(vars[delta_start + i], 2);
-		fg[0] += 0.65*CppAD::pow(vars[a_start + i], 2);
+		fg[0] += 0.95 * CppAD::pow(vars[a_start + i], 2);
 	}
 
 	// Minimize the value gap between sequential actuations.
@@ -208,14 +209,14 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // The upper and lower limits of delta are set to -25 and 25
   // degrees (values in radians).
   for (int i = delta_start; i < a_start; i++) {
-	  vars_lowerbound[i] = -0.126332;
-	  vars_upperbound[i] = 0.126332;
+	  vars_lowerbound[i] = -0.436332;
+	  vars_upperbound[i] = 0.436332;
   }
 
   // Acceleration/decceleration upper and lower limits.
   for (int i = a_start; i < n_vars; i++) {
 	  vars_lowerbound[i] = -1.0;
-	  vars_upperbound[i] = 0.7;
+	  vars_upperbound[i] = 1.0;
   }
 
   // Lower and upper limits for the constraints
